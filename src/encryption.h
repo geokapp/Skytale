@@ -14,16 +14,19 @@
 #ifndef ENCRYPTION_H
 #define ENCRYPTION_H
 
+#include <stdint.h>
 #include <iostream>
 #include <string>
 #include <cryptopp/modes.h>
 #include <cryptopp/aes.h>
+#include <cryptopp/osrng.h>
 #include <cryptopp/rsa.h>
 #include "common.h"
 
 namespace Skytale {
 
 #define DEFAULT_PRKEY_SIZE 3072
+#define DEFAULT_AES_KEY_LENGTH CryptoPP::AES::DEFAULT_KEYLENGTH
 
 /**
  * @name RandomNumberGenerator - Random Number Generator.
@@ -55,13 +58,14 @@ class PublicKey {
   PublicKey() {}
   
   void assign(const CryptoPP::RSA::PublicKey pk);
-  int32_t load(const char *filename);
-  void save(const char *filename);
+  int32_t load_from_file(const char *filename);
+  void save_to_file(const char *filename);
+  void load_from_string(const std::string key);
   CryptoPP::RSA::PublicKey public_key();
   std::string get_key_string();
   std::string get_key_hash(HashFunction hash_func);
-  std::string encrypt_message(const char *message, const char *seed = NULL);
-  bool verify_message(const char *message, const char *signature); 
+  std::string encrypt_message(const std::string message, std::string seed = "");
+  bool verify_message(const std::string message, const std::string signature); 
 };
 
 /**
@@ -80,19 +84,20 @@ class PrivateKey {
   PrivateKey() {}
   
   void assign(const CryptoPP::RSA::PrivateKey sk);
-  int32_t load(const char *filename);
-  void save(const char *filename);
+  int32_t load_from_file(const char *filename);
+  void load_from_string(const std::string key);
+  void save_to_file(const char *filename);
   CryptoPP::RSA::PrivateKey private_key();
   std::string get_key_string();
-  std::string decrypt_message(const char *message);
-  std::string sign_message(const char *message);
+  std::string decrypt_message(const std::string message);
+  std::string sign_message(const std::string message);
 };
 
 /**
  * KeyPair - Public Key Pair object
  *
- * This class defines the Skytale Public Key Pair object. To create a new object call
- * the generate method.
+ * This class defines the Skytale Public Key Pair object. To create a new object
+ * call the generate method.
  */
 class KeyPair {
  private:
@@ -108,6 +113,31 @@ class KeyPair {
   int32_t load(const char *pk_filename, const char *sk_filename);
   PublicKey *public_key();
   PrivateKey *private_key();
+};
+
+/**
+ * SymmetricKey - Symmetric Key object
+ *
+ * This class defines the Skytale Symmetric Key object. To create a new object call
+ * the constructor. To generate a new random key and iv call the generate method.
+ * To load an existing key and IV use the set_key and set_iv methods.
+ */
+class SymmetricKey {
+ private:
+  byte *m_key;
+  byte *m_iv;
+  uint16_t m_key_size;
+  CryptoPP::AutoSeededRandomPool m_rnd;
+  
+ public:
+  SymmetricKey();
+  ~SymmetricKey();
+  void generate(uint16_t size = CryptoPP::AES::DEFAULT_KEYLENGTH);
+  void set_key(byte *key, uint16_t size);
+  void set_iv(byte *iv);
+  void set_key_size(uint16_t size);
+  std::string  encrypt(const std::string plain_message);
+  std::string decrypt(const std::string encrypted_message);
 };
 
 }
