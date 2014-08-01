@@ -89,14 +89,14 @@ PublicKey::PublicKey(const CryptoPP::RSA::PublicKey pk) {
 }
 
 /**
- * @name load - Loads a Public Key from a file
+ * @name load_from_file - Loads a Public Key from a file
  * @param filename: The file name of the public key file.
  *
  * This method loads the key from a public key file.
  *
  * @return 0: success, 1: error
  */
-int32_t PublicKey::load(const char *filename) {
+int32_t PublicKey::load_from_file(const char *filename) {
   // First, check if the file exists.
   if (( access(filename, F_OK ) == -1))
     return 1;
@@ -116,14 +116,35 @@ int32_t PublicKey::load(const char *filename) {
 }
 
 /**
- * @name save - Saves a Public Key to a file
+ * @name load_from_string - Loads a Public Key from a string.
+ * @param key - The string that contains the key.
+ *
+ * This method loads the key from a string.
+ *
+ * @return Void.
+ */
+void PublicKey::load_from_string(const std::string key) {
+  CryptoPP::ByteQueue queue;
+  CryptoPP::HexDecoder decoder;
+  CryptoPP::StringSource ss(key, true);
+
+  // Decode the string and load the key.
+  ss.TransferTo(decoder);
+  decoder.MessageEnd();
+  decoder.CopyTo(queue);
+  queue.MessageEnd();
+  m_public_key.Load(queue);
+}
+
+/**
+ * @name save_to_file - Saves a Public Key to a file
  * @param filename: The file name of the public key file.
  *
  * This method saves the public key to a file.
  *
  * @return Void.
  */
-void PublicKey::save(const char *filename) {
+void PublicKey::save_to_file(const char *filename) {
   CryptoPP::ByteQueue queue;
   CryptoPP::HexEncoder encoder;
   CryptoPP::FileSink file(filename);
@@ -256,17 +277,17 @@ std::string PublicKey::get_key_hash(HashFunction hash_func) {
  *
  * @return A string that cotnains the encrypted message.
  */
-std::string PublicKey::encrypt_message(const char *seed, const char *message) {
+std::string PublicKey::encrypt_message(const std::string message,
+				       std::string seed) {
   CryptoPP::RSAES_OAEP_SHA_Encryptor pub(m_public_key);
   CryptoPP::RandomPool randPool;
   std::string result;
   std::string seedStr;
   
-  if (!seed) {
-    seedStr = convert_uint_to_string(time(NULL));
-    seed = seedStr.c_str();
+  if (seed.empty()) {
+    seed = convert_uint_to_string(time(NULL));
   }
-  randPool.IncorporateEntropy((byte *)seed, strlen(seed));
+  randPool.IncorporateEntropy((byte *)seed.c_str(), seed.size());
   CryptoPP::StringSink *ss = new CryptoPP::StringSink(result);
   CryptoPP::HexEncoder *he = new CryptoPP::HexEncoder(ss);
   CryptoPP::PK_EncryptorFilter *pkef = new CryptoPP::PK_EncryptorFilter(randPool,
@@ -286,7 +307,8 @@ std::string PublicKey::encrypt_message(const char *seed, const char *message) {
  *
  * @return true: OK, false: Error.
  */
-bool PublicKey::verify_message(const char *message, const char *signature) {
+bool PublicKey::verify_message(const std::string message,
+			       const std::string signature) {
   CryptoPP::RSASS<CryptoPP::PSSR, CryptoPP::SHA256>::Verifier pub(m_public_key);
   CryptoPP::HexDecoder *hd = new CryptoPP::HexDecoder;
   CryptoPP::StringSource signatureMessage(signature, true, hd);
@@ -317,14 +339,14 @@ PrivateKey::PrivateKey(const CryptoPP::RSA::PrivateKey sk) {
 }
 
 /**
- * @name load - Loads a Private Key from a file
+ * @name load_from_file - Loads a Private Key from a file.
  * @param filename: The file name of the private key file.
  *
  * This method loads the key from a private key file.
  *
  * @return 0: Success, 1: Error.
  */
-int32_t PrivateKey::load(const char *filename) {
+int32_t PrivateKey::load_from_file(const char *filename) {
   // First, check if the file exists.
   if ((access(filename, F_OK ) == -1))
     return 1;
@@ -344,14 +366,36 @@ int32_t PrivateKey::load(const char *filename) {
 }
 
 /**
- * @name save - Saves a Private Key to a file.
+ * @name load_from_string - Loads a Private Key from a string.
+ * @param key: The string that contains the key.
+ *
+ * This method loads the key from a string.
+ *
+ * @return Void.
+ */
+void PrivateKey::load_from_string(const std::string key) {
+  CryptoPP::ByteQueue queue;
+  CryptoPP::HexDecoder decoder;
+  CryptoPP::StringSource ss(key, true);
+
+  // Decode the file and load the key.
+  ss.TransferTo(decoder);
+  decoder.MessageEnd();
+  decoder.CopyTo(queue);
+  queue.MessageEnd();
+  m_private_key.Load(queue);
+}
+
+
+/**
+ * @name save_to_file - Saves a Private Key to a file.
  * @param filename: The file name of the private key file.
  *
  * This method saves the private key to a file.
  *
  * @return Void.
  */
-void PrivateKey::save(const char *filename) {
+void PrivateKey::save_to_file(const char *filename) {
   CryptoPP::ByteQueue queue;
   CryptoPP::HexDecoder encoder;
   CryptoPP::FileSink file(filename);
@@ -417,9 +461,10 @@ std::string PrivateKey::get_key_string() {
  *
  * @return A string that cotnains the Private Key encoded in HEX.
  */
-std::string PrivateKey::decrypt_message(const char *message) {
+std::string PrivateKey::decrypt_message(const std::string message) {
   CryptoPP::RSAES_OAEP_SHA_Decryptor priv(m_private_key);
   std::string result;
+  
   CryptoPP::StringSink *ss = new CryptoPP::StringSink(result);
   CryptoPP::PK_DecryptorFilter *pkdf = new CryptoPP::PK_DecryptorFilter(drng.get(),
 								       priv, ss);
@@ -437,7 +482,7 @@ std::string PrivateKey::decrypt_message(const char *message) {
  *
  * @return Message signature (string)
  */
-std::string PrivateKey::sign_message(const char *message) {
+std::string PrivateKey::sign_message(const std::string message) {
   std::string signature;
   
   CryptoPP::RSASS<CryptoPP::PSSR, CryptoPP::SHA256>::Signer priv(m_private_key);
@@ -516,9 +561,9 @@ void KeyPair::generate(int32_t size) {
 int32_t KeyPair::load(const char *pk_filename, const char *sk_filename) {
   m_public_key = new PublicKey();
   m_private_key = new PrivateKey();
-  int32_t result = m_public_key->load(pk_filename);
+  int32_t result = m_public_key->load_from_file(pk_filename);
   if (!result)
-    result = m_private_key->load(sk_filename);
+    result = m_private_key->load_from_file(sk_filename);
   return result;
 }
 
@@ -544,3 +589,153 @@ PrivateKey *KeyPair::private_key() {
   return m_private_key;
 }
 
+/**
+ * @name SymmetricKey - Constructor.
+ *
+ * The default constructor.
+ */
+SymmetricKey::SymmetricKey() {
+  m_key = NULL;
+  m_iv = NULL;
+}
+
+/**
+ * @name ~SymmetricKey - Destructor.
+ *
+ * The default destructor.
+ */
+SymmetricKey::~SymmetricKey() {
+  if (m_key)
+    delete m_key;
+  if (m_iv)
+    delete m_iv;
+}
+
+/**
+ * @name generate - Generate symmetric key and IV.
+ * @param size: The key size in Bytes. It can be either 16, 24, or 32. The
+ *              default is 16.
+ *
+ * This method generates a random symmetric key and a random IV.
+ *
+ * @return Void.
+ */
+void SymmetricKey::generate(uint16_t size) {
+  // Check size.
+  if (size != 16 && size != 24 && size != 32)
+    return;
+  
+  // Generate a random key.
+  m_key = new byte[size];
+  m_rnd.GenerateBlock(m_key, size);
+  m_key_size = size;
+  
+  // Generate a random IV.
+  m_iv = new byte[CryptoPP::AES::BLOCKSIZE];
+  m_rnd.GenerateBlock(m_iv, CryptoPP::AES::BLOCKSIZE);
+}
+
+/**
+ * @name set_key - Set the key.
+ * @param key: An AES key.
+ * @param size: The size of the key in Bytes. It can be either 16, 24, or 32. The
+ *              default is 16.
+ *
+ * This method sets the key.
+ * @return Void.
+ */
+void SymmetricKey::set_key(byte *key, uint16_t size) {
+  if (key && !m_key) {
+    m_key = new byte[size];
+    memcpy(m_key, key, size);
+    m_key_size = size;
+  }
+}
+
+/**
+ * @name set_iv - Set IV.
+ * @param iv: The IV to set.
+ *
+ * This method sets the IV.
+ *
+ * @return Void.
+ */
+void SymmetricKey::set_iv(byte *iv) {
+  if (iv && m_iv) {
+    m_iv = new byte[CryptoPP::AES::BLOCKSIZE];
+    memcpy(m_iv, iv, CryptoPP::AES::BLOCKSIZE);
+  }
+}
+
+/**
+ * @name set_key_size - Set key size.
+ * @param size: The key size. It can be either 16, 24, or 32. The default is
+ *              16.
+ *
+ * Set the key size.
+ *
+ * @return Void.
+ */
+void SymmetricKey::set_key_size(uint16_t size) {
+  // Check size.
+  if (size != 16 && size != 24 && size != 32)
+    return;
+  
+  m_key_size = size;
+}
+
+/**
+ * @name encrypt - Encrypt a message.
+ * @param plain_message: The plain message.
+ *
+ * This method encrypts a message by using the CBC mode of AES.
+ *
+ * @return The cyphertext.
+ */
+std::string SymmetricKey::encrypt(const std::string plain_message) {
+  if (!m_key || !m_iv)
+    return "";
+
+  int32_t message_len = plain_message.size();
+  std::string plain_message_str(plain_message);
+  std::string result;
+  result.clear();
+  
+  // StreamTransformationFilter adds padding.
+  CryptoPP::CBC_Mode<CryptoPP::AES>::Encryption encryptor;
+  encryptor.SetKeyWithIV(m_key, m_key_size, m_iv);
+
+  CryptoPP::StringSource s(plain_message, true,
+			   new CryptoPP::StreamTransformationFilter(encryptor,
+						   new CryptoPP::StringSink(result)));
+
+  return result;
+}
+
+/**
+ * @name decrypt - Decrypt a message.
+ * @param encrypted_message: The cyphertext.
+ *
+ * This method decrypts a message by using the CBC mode of AES.
+ *
+ * @return The plain text.
+ */
+std::string SymmetricKey::decrypt(std::string encrypted_message) {
+  if (!m_key || !m_iv)
+    return "";
+  
+  int32_t message_len = encrypted_message.size();
+  
+  std::string result;
+  result.clear();
+  CryptoPP::StringSink *ss = new CryptoPP::StringSink(result);
+  CryptoPP::CBC_Mode<CryptoPP::AES>::Decryption decryptor;
+  decryptor.SetKeyWithIV(m_key, m_key_size, m_iv);
+
+  // StreamTransformationFilter removes padding.
+  CryptoPP::StringSource s(encrypted_message, true,
+			   new CryptoPP::StreamTransformationFilter(decryptor,
+						new CryptoPP::StringSink(result)));
+
+  return result;
+}
