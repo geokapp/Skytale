@@ -690,7 +690,7 @@ void SymmetricKey::set_key_size(uint16_t size) {
  *
  * This method encrypts a message by using the CBC mode of AES.
  *
- * @return The cyphertext.
+ * @return The ciphertext.
  */
 std::string SymmetricKey::encrypt(const std::string plain_message) {
   if (!m_key || !m_iv)
@@ -714,7 +714,7 @@ std::string SymmetricKey::encrypt(const std::string plain_message) {
 
 /**
  * @name decrypt - Decrypt a message.
- * @param encrypted_message: The cyphertext.
+ * @param encrypted_message: The ciphertext.
  *
  * This method decrypts a message by using the CBC mode of AES.
  *
