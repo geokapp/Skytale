@@ -192,8 +192,6 @@ class SecureServer : public libiris::Server {
   KeyPair *keypair();
   void set_certificate(Certificate *certificate);
   Certificate *certificate();
-  std::string get_client_ticket(const std::string id);
-  SymmetricKey *get_client_shared_key(const std::string id);
   
   int32_t authenticate_client(SecureClient *client, int32_t (*validate_func)(const char*, void*),
 			      void *parameter);
