@@ -42,26 +42,6 @@ Encoder::~Encoder()
 }
 
 /**
- * @name put - Encode a new value.
- * @param T element: The value to be decoded
- *
- * This method initializes the encoder object.
- *
- * @return Void.
- */
-template<typename T>		
-void Encoder::put(const T element) 
-{
-  std::stringstream ss1, ss2;
-  
-  m_elements++;
-  ss2 << element;
-  m_payload += ss2.str();
-  ss1 << ss2.str().length() <<' ';
-  m_sizes += ss1.str();
-}
-
-/**
  * @name get - Get the result string.
  *
  * This method returns a string that contains all the encoded values.
@@ -75,6 +55,19 @@ std::string Encoder::get()
   ss << m_elements <<' ' << m_sizes << m_payload;
   return ss.str();
 }
+
+/**
+ * @name clear - Clear the encoded string.
+ *
+ * This method clears the encoded string.
+ */
+void Encoder::clear()
+{
+  m_elements = 0;
+  m_sizes.clear();
+  m_payload.clear();
+}
+
 
 /**
  * @name Decoder - Constructor.
@@ -129,38 +122,25 @@ void Decoder::put(const std::string in)
     m_sizes = new uint32_t[m_elements];
     for (uint32_t i = 0; i < m_elements; i++ )		
       ss >> m_sizes[i];
-    
-    ss >> m_payload;
+
+    std::string tmp;
+    ss >> tmp;
+    m_payload = ss.str().substr(ss.str().find(tmp));
   }
 }
 
 /**
- * @name get - Loads a string to the decoder.
- * @param in: A string that contains encoded values.
+ * @name clear - Clear the decoder object.
  *
- * This method loads a string to the decoder object. It must be called
- * only once. If you use the constructor to load string you should not
- * call this method.
+ * This function clears the decoder object.
  *
- * @return The current decoded value.
+ * @return Void.
  */
-template<typename T>
-T Decoder::get() 
+void Decoder::clear() 
 {
-  if (m_current < m_elements && !(m_payload.empty())) {
-    std::string result = m_payload.substr(0, m_sizes[m_current]);
-    m_payload = m_payload.substr(m_sizes[m_current], m_payload.length());
-    T ret;
-    std::stringstream ss(result);
-    ss >> ret;
-    m_current++;
-    return ret;
-  } else {
-    // The payload is empty, return 0.
-    std::string result = "0";
-    T ret;
-    std::stringstream ss(result);
-    ss >> ret;
-    return ret;
-  }
+  m_payload.clear();
+  if (m_sizes)
+    delete m_sizes;
+  m_sizes = NULL;
+  m_elements = 0;
 }
