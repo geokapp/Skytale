@@ -12,11 +12,12 @@
  * 
  */
 #ifndef ENCODER_H
+#define ENCODER_H
 
-#include <iostream>
 #include <string>
 #include <sstream>
 #include <stdint.h>
+#include <typeinfo>
 
 namespace Skytale {
 
@@ -36,10 +37,28 @@ private:
 public:
   Encoder();
   ~Encoder();
-  
+
+  /**
+   * @name put - Encode a new value.
+   * @param T element: The value to be decoded
+   *
+   * This method initializes the encoder object.
+   *
+   * @return Void.
+   */
   template<typename T>  
-  void put(const T element);
+  void put(const T element) {
+    std::stringstream ss1, ss2;
+    
+    m_elements++;
+    ss2 << element;
+    m_payload += ss2.str();
+    ss1 << ss2.str().length() <<' ';
+    m_sizes += ss1.str();
+  }
+  
   std::string get();
+  void clear();
 };
 
 /** 
@@ -62,8 +81,51 @@ public:
   ~Decoder();
 
   void put(const std::string in);
+
+  /**
+   * @name get - Loads a string to the decoder.
+   * @param in: A string that contains encoded values.
+   *
+   * This method loads a string to the decoder object. It must be called
+   * only once. If you use the constructor to load string you should not
+   * call this method.
+   *
+   * @return The current decoded value.
+   */
   template<typename T>
-  T get();
+  inline T get(){
+    if (m_current < m_elements && !(m_payload.empty())) { 
+      std::string result = m_payload.substr(0, m_sizes[m_current]);
+      m_payload = m_payload.substr(m_sizes[m_current], m_payload.length());
+      T ret;
+      std::stringstream ss(result);
+      // Call a helper function to handle strings differently from other types.
+      get_impl(ss, ret);
+      
+      m_current++;
+      return ret;
+    } else {
+      // The payload is empty, return 0.
+      std::string result = "0";
+      T ret;
+      std::stringstream ss(result);
+      ss >> ret;
+      return ret;
+    }
+  }
+  
+  void clear();
+
+ private:
+  void get_impl(std::stringstream &ss, std::string &param) {
+    param = ss.str();
+  }
+  
+  template<typename T>
+  void get_impl(std::stringstream &ss, T &param) {
+    ss >> param;
+  }
+  
 };
 
 }
