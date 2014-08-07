@@ -288,15 +288,39 @@ std::string PublicKey::encrypt_message(const std::string message,
     seed = convert_uint_to_string(time(NULL));
   }
   randPool.IncorporateEntropy((byte *)seed.c_str(), seed.size());
-  CryptoPP::StringSink *ss = new CryptoPP::StringSink(result);
-  CryptoPP::HexEncoder *he = new CryptoPP::HexEncoder(ss);
-  CryptoPP::PK_EncryptorFilter *pkef = new CryptoPP::PK_EncryptorFilter(randPool,
-									pub, he);
-  
-  CryptoPP::StringSource(message, true, pkef);
-  
+
+  int32_t remaining = message.size();
+  int32_t step = PLAIN_CHUNK_SIZE;
+  int32_t current = 0;
+  result.clear();
+  while (remaining > 0) {
+    // Process the message in chunks.
+    std::string chunk_result;
+    std::string chunk_message;
+    chunk_result.clear();
+    chunk_message.clear();
+    if (remaining >= step) {
+      chunk_message = message.substr(current, step);
+      remaining -= step;
+    } else {
+      chunk_message = message.substr(current, remaining);
+      remaining = 0;
+    }
+    current += step;
+
+    CryptoPP::StringSink *ss = new CryptoPP::StringSink(chunk_result);
+    CryptoPP::HexEncoder *he = new CryptoPP::HexEncoder(ss);
+    CryptoPP::PK_EncryptorFilter *pkef = new CryptoPP::PK_EncryptorFilter(randPool, pub, he);
+    CryptoPP::StringSource(chunk_message, true, pkef);
+
+    result += chunk_result;
+  }
   return result;
 }
+
+
+
+
 
 /**
  * @name verify_message - Verify a message signature.
@@ -464,15 +488,37 @@ std::string PrivateKey::get_key_string() {
 std::string PrivateKey::decrypt_message(const std::string message) {
   CryptoPP::RSAES_OAEP_SHA_Decryptor priv(m_private_key);
   std::string result;
-  
-  CryptoPP::StringSink *ss = new CryptoPP::StringSink(result);
-  CryptoPP::PK_DecryptorFilter *pkdf = new CryptoPP::PK_DecryptorFilter(drng.get(),
-								       priv, ss);
-  CryptoPP::HexDecoder *hd = new CryptoPP::HexDecoder(pkdf);
-  CryptoPP::StringSource(message, true, hd);
-  
+
+  int32_t remaining = message.size();
+  int32_t step = 2 * CIPHER_CHUNK_SIZE;
+  int32_t current = 0;
+  result.clear();
+  while (remaining > 0) {
+    // Process the message in chunks.
+    std::string chunk_result;
+    std::string chunk_message;
+    chunk_result.clear();
+    chunk_message.clear();
+    if (remaining >= step) {
+      chunk_message = message.substr(current, step);
+      remaining -= step;
+    } else {
+      chunk_message = message.substr(current);
+      remaining = 0;
+    }
+    current += step;
+
+    CryptoPP::StringSink *ss = new CryptoPP::StringSink(chunk_result);
+    CryptoPP::PK_DecryptorFilter *pkdf = new CryptoPP::PK_DecryptorFilter(m_drng.get(),
+									  priv, ss);
+    CryptoPP::HexDecoder *hd = new CryptoPP::HexDecoder(pkdf);
+    CryptoPP::StringSource(chunk_message, true, hd);
+
+    result += chunk_result;
+  }
   return result;
 }
+
 
 /**
  * @name sign_message - Sign a message.
@@ -488,7 +534,7 @@ std::string PrivateKey::sign_message(const std::string message) {
   CryptoPP::RSASS<CryptoPP::PSSR, CryptoPP::SHA256>::Signer priv(m_private_key);
   CryptoPP::StringSink *ss = new CryptoPP::StringSink(signature);
   CryptoPP::HexEncoder *he = new CryptoPP::HexEncoder(ss);
-  CryptoPP::SignerFilter *sf = new CryptoPP::SignerFilter(drng.get(), priv, he);
+  CryptoPP::SignerFilter *sf = new CryptoPP::SignerFilter(m_drng.get(), priv, he);
   CryptoPP::StringSource signature_source(message, true, sf);
 
   return signature;
@@ -568,6 +614,30 @@ int32_t KeyPair::load(const char *pk_filename, const char *sk_filename) {
 }
 
 /**
+ * @name set_public_key - Set public key.
+ * @param pk: A poitner to a public key.
+ *
+ * Sets the public key.
+ *
+ * @return Void.
+ */
+void KeyPair::set_public_key(PublicKey *pk) {
+  m_public_key = pk;
+}
+
+/**
+ * @name set_private_key - Set private key.
+ * @param uk: A poitner to a private key.
+ *
+ * Sets the private key.
+ *
+ * @return Void.
+ */
+void KeyPair::set_private_key(PrivateKey *uk) {
+  m_private_key = uk;
+}
+
+/**
  * @name public_key - Return the Public Key.
  *
  * This method returns a Skytale Public Key object.
@@ -599,6 +669,22 @@ SymmetricKey::SymmetricKey() {
   m_iv = NULL;
 }
 
+/**
+ * @name SymmetricKey - Copy constructor.
+ *
+ * The Copy constructor.
+ */
+SymmetricKey::SymmetricKey(SymmetricKey *sk) {
+  if (sk) {
+    m_key = new byte[sk->key_size()];
+    memcpy(m_key, sk->key(), sk->key_size());
+    m_iv = new byte[CryptoPP::AES::DEFAULT_KEYLENGTH];
+    memcpy(m_iv, sk->iv(), CryptoPP::AES::DEFAULT_KEYLENGTH);
+    m_key_size = sk->key_size();
+  }
+}
+
+  
 /**
  * @name ~SymmetricKey - Destructor.
  *
@@ -637,33 +723,44 @@ void SymmetricKey::generate(uint16_t size) {
 
 /**
  * @name set_key - Set the key.
- * @param key: An AES key.
+ * @param key: An AES key encoded in Hex format.
  * @param size: The size of the key in Bytes. It can be either 16, 24, or 32. The
  *              default is 16.
  *
  * This method sets the key.
  * @return Void.
  */
-void SymmetricKey::set_key(byte *key, uint16_t size) {
-  if (key && !m_key) {
+void SymmetricKey::set_key(std::string key, uint16_t size) {
+  if (!m_key) {
     m_key = new byte[size];
-    memcpy(m_key, key, size);
+    std::string key_str;
+    key_str.clear();
+    CryptoPP::StringSource ssk(key, true /*pump all*/,
+			       new CryptoPP::HexDecoder(
+				   new CryptoPP::StringSink(key_str)));
+    memcpy(m_key, key_str.data(), size);
     m_key_size = size;
   }
 }
 
 /**
  * @name set_iv - Set IV.
- * @param iv: The IV to set.
+ * @param iv: The IV encoded in Hex format.
  *
  * This method sets the IV.
  *
  * @return Void.
  */
-void SymmetricKey::set_iv(byte *iv) {
-  if (iv && m_iv) {
+void SymmetricKey::set_iv(std::string iv) {
+  if (!m_iv) {
     m_iv = new byte[CryptoPP::AES::BLOCKSIZE];
-    memcpy(m_iv, iv, CryptoPP::AES::BLOCKSIZE);
+    std::string iv_str;
+    iv_str.clear();
+    CryptoPP::StringSource ssi(iv, true /*pump all*/,
+			       new CryptoPP::HexDecoder(
+				   new CryptoPP::StringSink(iv_str)));
+
+    memcpy(m_iv, iv_str.data(), CryptoPP::AES::BLOCKSIZE);
   }
 }
 
@@ -685,12 +782,77 @@ void SymmetricKey::set_key_size(uint16_t size) {
 }
 
 /**
+ * @name key - Return the key.
+ *
+ * Returns the key.
+ *
+ * @return A byte array that contains the key.
+ */
+byte *SymmetricKey::key() {
+  return m_key;
+}
+
+/**
+ * @name iv - Return the iv.
+ *
+ * Returns the iv.
+ *
+ * @return A byte array that contains the iv.
+ */
+byte *SymmetricKey::iv() {
+  return m_iv;
+}
+
+/**
+ * @name key_size - Return the size of the key.
+ *
+ * Returns the key size.
+ *
+ * @return The key size.
+ */
+int32_t SymmetricKey::key_size() {
+  return m_key_size;
+}
+
+/**
+ * @name get_key_string - Return the key.
+ *
+ * Returns a Hex encoded string that contains the key.
+ *
+ * @return Key string.
+ */
+std::string SymmetricKey::get_key_string() {
+  std::string encoded;
+  CryptoPP::StringSource ss(m_key, m_key_size, true,
+			    new CryptoPP::HexEncoder(
+				new CryptoPP::StringSink(encoded)));
+  
+  return encoded;
+}
+
+/**
+ * @name get_iv_string - Return the iv.
+ *
+ * Returns a Hex encoded string that contains the iv.
+ *
+ * @return iv string.
+ */
+std::string SymmetricKey::get_iv_string() {
+  std::string encoded;
+  CryptoPP::StringSource ss(m_iv, CryptoPP::AES::DEFAULT_KEYLENGTH, true,
+			    new CryptoPP::HexEncoder(
+				new CryptoPP::StringSink(encoded)));
+  
+  return encoded;
+}
+
+/**
  * @name encrypt - Encrypt a message.
  * @param plain_message: The plain message.
  *
  * This method encrypts a message by using the CBC mode of AES.
  *
- * @return The cyphertext.
+ * @return The ciphertext.
  */
 std::string SymmetricKey::encrypt(const std::string plain_message) {
   if (!m_key || !m_iv)
@@ -709,12 +871,18 @@ std::string SymmetricKey::encrypt(const std::string plain_message) {
 			   new CryptoPP::StreamTransformationFilter(encryptor,
 						   new CryptoPP::StringSink(result)));
 
-  return result;
+  // Encode the ciphertext into Hex Format.
+  std::string encoded;
+  encoded.clear();
+  CryptoPP::StringSource ss(result, true,
+			    new CryptoPP::HexEncoder(
+				new CryptoPP::StringSink(encoded)));
+  return encoded;
 }
 
 /**
  * @name decrypt - Decrypt a message.
- * @param encrypted_message: The cyphertext.
+ * @param encrypted_message: The ciphertext.
  *
  * This method decrypts a message by using the CBC mode of AES.
  *
@@ -723,17 +891,25 @@ std::string SymmetricKey::encrypt(const std::string plain_message) {
 std::string SymmetricKey::decrypt(std::string encrypted_message) {
   if (!m_key || !m_iv)
     return "";
+
+  // Decode the ciphertext from Hex Format.
+  std::string decoded;
+  decoded.clear();
+  CryptoPP::StringSource ss_decode(encrypted_message, true,
+			    new CryptoPP::HexDecoder(
+				new CryptoPP::StringSink(decoded)));
+
   
-  int32_t message_len = encrypted_message.size();
+  int32_t message_len = decoded.size();
   
   std::string result;
   result.clear();
-  CryptoPP::StringSink *ss = new CryptoPP::StringSink(result);
+  CryptoPP::StringSink *ss_decrypt = new CryptoPP::StringSink(result);
   CryptoPP::CBC_Mode<CryptoPP::AES>::Decryption decryptor;
   decryptor.SetKeyWithIV(m_key, m_key_size, m_iv);
 
   // StreamTransformationFilter removes padding.
-  CryptoPP::StringSource s(encrypted_message, true,
+  CryptoPP::StringSource ss_transform(decoded, true,
 			   new CryptoPP::StreamTransformationFilter(decryptor,
 						new CryptoPP::StringSink(result)));
 

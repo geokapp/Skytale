@@ -55,10 +55,17 @@ Supported cryptographic primitives
   reason it relies on RSA and Signature Scheme with Recovery (PSSR).
 * **Message digests**: The library support the generation and validation of message digests.
   Message digests rely on SHA256.
-* **Hashing**: Hashes of public keys are always supported. The user can choose one of the 
+* **Hashing**: Hashes of public keys are also supported. The user can choose one of the 
   following hash algorithms: SHA256/SHA384/SHA512/RIPEMD128/RIPEMD160/RIPEMD256/RIPEMD320/
   MD5/CRC32.
-
+* **Encoding/Decoding**: The library provides an encoder object which you can use to pack
+  multiple variables of different types (e.g. strings and integers) into a string. You can
+  use a decoder object to load the encoded string and get back its contents one by one with 
+  the same order you placed them into the encoder.
+* **Authentication**: The library provides two secure endpoints: SecureClient for clients
+  and SecureServer for servers. These endpoints can securely communicate each other by
+  first performing authentication and then by encrypting and decrypting the sent and
+  received data. 
 
 Using Skytale
 -------------

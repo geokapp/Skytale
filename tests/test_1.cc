@@ -12,9 +12,12 @@
  * 
  */
 
+#include <stdint.h>
+#include <iostream>
 #include "../src/common.h"
 #include "../src/digest.h"
 #include "../src/encryption.h"
+#include "../src/encoder.h"
 
 using namespace Skytale;
 
@@ -53,10 +56,9 @@ int main() {
   std::cout << "\n--- end of private key ---\n\n";
   
   std::cout <<"hash: " << pair.public_key()->get_key_hash(SHA256_H) << "\n";
-
-
+  
   std::cout <<"------------------------------\n";
-  std::string plain = "Hello There! I am a short message. faskldfs fnsdk nsdsdsdffsd sfsdkfs dfsfsdlfjwefwe fwefehfei fweofh\n \0 ";
+  std::string plain = "Hello There!111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111";
   std::cout <<"Plain Message: " << plain << std::endl;
   std::cout <<"Plain message size: " << plain.size() << std::endl;
   std::cout <<"------------------------------\n";
@@ -110,32 +112,30 @@ int main() {
     std::cout << "Result OK\n";
   else
     std::cout << "Result Error\n";
+
+  //
+  // Test Encoder/Decoder
+  //
+
+  std::cout <<"\n4. Testing encoder/decoder..\n\n";
+
+  Encoder en;
+  en.put("hello!");
+  en.put("15");
+  en.put("fsdngjdffgnvdfevomgehmowhecngermvhrogergiroghrvhghoerhhghfdhgsdjfngsdfjnwep3ofggfdjghfsgp2grpgnp --");
+  en.put("bye");
+  std::string encoded  = en.get();
+  std::cout <<"------------------------------\n";
+  std::cout <<"Encoded text: " << encoded << std::endl;
+  std::cout <<"------------------------------\n";
   
-  /*
-
-  DPublicKey pk = pair.getPublicKey();
-
-  DPrivateKey sk = pair.getPrivateKey();
-
-  string message2 = "Hello World!";
-
-  string encrypted = pk.encryptString("dadajo", message2.c_str());
-
-  cout << "Encryption works! \n";
-
-
-  string decrypted = sk.decryptString(encrypted.c_str());
-
-
-  cout << "Decryptio works! \n";
-
-
-  cout << "Message: " << message2 << "\n------\n";
-
-  cout << "Encrypted : " << encrypted << "\n------\n";
-
-  cout << "Decrypted : " << decrypted << "\n";
-
-  */
+  Decoder dec;
+  dec.put(encoded);
+  
+  std::cout << dec.get<std::string>() << std::endl;
+  std::cout << dec.get<int32_t>() << std::endl;
+  std::cout << dec.get<std::string>() << std::endl;
+  std::cout << dec.get<std::string>() << std::endl;
+  
   return 0;
 }

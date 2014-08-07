@@ -7,7 +7,7 @@ CXX = g++
 # Compiler options
 #
 CXXFLAGS = -Isrc -rdynamic
-LIBS = -ldl -lcryptopp $(OPTLIBS)
+LIBS = -ldl -lcryptopp -liris $(OPTLIBS)
 
 #
 # Installation prefix
