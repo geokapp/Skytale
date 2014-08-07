@@ -340,7 +340,10 @@ void Certificate::sign(const std::string algorithm, PrivateKey *prk) {
   if (algorithm == auth_algorithm(AUTH_ALGO_RSA && prk)) {
     std::string pack = enc.get();  
     m_signature = prk->sign_message(pack);
-  }   
+  } else {
+    std::cerr << "Skytale::Certificate::sign: Algorithm " << algorithm << " not supported.\n";
+  }
+  
 }
 
 /**
@@ -578,8 +581,10 @@ int32_t SecureClient::authenticate_server(int32_t
 					  (*validate_func)(const char *,
 							   void *),
 					  void *parameter) {
-  if (!m_keypair || !m_certificate)
+  if (!m_keypair || !m_certificate) {
+    std::cerr << "Skytale::SecureClient::authenticate_server: Client's keypair or certificate is not set.\n";
     return 1;
+  }
   
   std::string packet;
   std::string response;
@@ -599,14 +604,18 @@ int32_t SecureClient::authenticate_server(int32_t
   packet = enc.get();
 
   // Initiate authentication.
-  if (this->send_data(packet.c_str(), packet.size()) == -1)
+  if (this->send_data(packet.c_str(), packet.size()) == -1) {
+    std::cerr << "Skytale::SecureClient::authenticate_server: Cannot send data to endpoint.\n";
     return 1;
+  }
   
   // Wait for server's response.
   response_buf = new char[AUTH_MAX_PACKET_SIZE];
   memset(response_buf, 0, AUTH_MAX_PACKET_SIZE);
-  if (this->receive_data(response_buf, AUTH_MAX_PACKET_SIZE) == -1)
+  if (this->receive_data(response_buf, AUTH_MAX_PACKET_SIZE) == -1) {
+    std::cerr << "Skytale::SecureClient::authenticate_server: Cannot receive data from endpoint.\n";
     return 1;
+  }
   
   response.assign(response_buf);
   delete response_buf;
@@ -617,6 +626,7 @@ int32_t SecureClient::authenticate_server(int32_t
   if (dec.get<std::string>() != auth_operation(AUTH_CERT_REP)) {
     // Something strange happened. The server did not reply with a proper
     // packet format. We have to end the authentication process here.
+    std::cerr << "Skytale::SecureClient::authenticate_server. Wrong packet format. AUTH_CERT_REP was expected. \n";
     return 1;
   }
   
@@ -627,6 +637,7 @@ int32_t SecureClient::authenticate_server(int32_t
 
   if (!(cert.is_valid(validate_func, parameter))) {
     // The certificate is not valid. We have to end the authentication process.
+    std::cerr << "Skytale::SecureClient::authenticate_server: The server certificate is not valid.\n";
     return 1;
   }
   
@@ -695,14 +706,18 @@ int32_t SecureClient::authenticate_server(int32_t
   packet = enc.get();
   
   // Send the packet.
-  if (this->send_data(packet.c_str(), packet.size()) == -1)
+  if (this->send_data(packet.c_str(), packet.size()) == -1) {
+    std::cerr << "Skytale::SecureClient::authenticate_server: Cannot send data to endpoint.\n";
     return 1;
+  }
   
   // Wait for server's response.
   response_buf = new char[AUTH_MAX_PACKET_SIZE];
   memset(response_buf, 0, AUTH_MAX_PACKET_SIZE);
-  if (this->receive_data(response_buf, AUTH_MAX_PACKET_SIZE) == -1)
+  if (this->receive_data(response_buf, AUTH_MAX_PACKET_SIZE) == -1) {
+    std::cerr << "Skytale::SecureClient::authenticate_server: Cannot receive data from the  endpoint.\n";
     return 1;
+  }
   
   response.assign(response_buf);
   delete response_buf;
@@ -716,6 +731,7 @@ int32_t SecureClient::authenticate_server(int32_t
   if (dec.get<std::string>() != auth_operation(AUTH_AUTH_REP)) {
     // Something strange happened. The server did not reply with a proper
     // packet format. We have to end the authentication process here.
+    std::cerr << "Skytale::SecureClient::authenticate_server: Wrong packet format. AUTH_AUTH_REP was expected.\n";
     return 1;
   }
 
@@ -734,9 +750,11 @@ int32_t SecureClient::authenticate_server(int32_t
     return 1;
     
   // This must be server's id: es.
-  if (dec2.get<std::string>() != es)
+  if (dec2.get<std::string>() != es) {
+    std::cerr << "Skytale::SecureClient::authenticate_server: Received server ID does not match the server's certificate.\n";
     return 1;
-
+  }
+  
   // Next comes the shared symmetric key between the server and the client
   // and the iv.
   std::string kr_retr = dec2.get<std::string>();
@@ -749,9 +767,11 @@ int32_t SecureClient::authenticate_server(int32_t
   m_shared_key->set_iv(iv_retr);
 
   // This should be the Tauth.
-  if (dec2.get<time_t>() != tauth)
-    return -1;
-
+  if (dec2.get<time_t>() != tauth) {
+    std::cerr << "Skytale::SecureClient::authenticate_server: Received timestamp does not match the sent timestamp.\n";
+    return 1;
+  }
+  
   // Authentication succeeded.
   return 0;
 }
@@ -772,6 +792,7 @@ int32_t SecureClient::send_secure_data(const void *data, const size_t data_len) 
     std::string encrypted = m_shared_key->encrypt(data_string);
     return send_data(encrypted.c_str(), strlen(encrypted.c_str()), NULL);
   } else {
+    std::cerr << "Skytale::SecureClient::send_secure_data: Cannot send data to endpoint.\n";
     return -1;
   }
 }
@@ -799,6 +820,7 @@ int32_t SecureClient::receive_secure_data(void *data, const size_t data_len) {
       }
     }
   }
+  std::cerr << "Skytale::SecureClient::receive_secure_data: Cannot receive data from the endpoint.\n";
   return -1;
 }
 
@@ -922,8 +944,10 @@ KeyPair *SecureServer::keypair() {
 int32_t SecureServer::authenticate_client(SecureClient *client,
 					  int32_t (*validate_func)(const char *, void *),
 					  void *parameter) {
-  if (!m_keypair || !m_certificate)
+  if (!m_keypair || !m_certificate) {
+    std::cerr << "Skytale::SecureServer::authenticate_client: Server's keypair or certificate is not set.\n";
     return 1;
+  }
   
   std::string packet;
   std::string response;
@@ -936,8 +960,10 @@ int32_t SecureServer::authenticate_client(SecureClient *client,
   // Wait for client's request.
   response_buf = new char[AUTH_MAX_PACKET_SIZE];
   memset(response_buf, 0, AUTH_MAX_PACKET_SIZE);
-  if (this->receive_data(response_buf, AUTH_MAX_PACKET_SIZE, client) == -1)
+  if (this->receive_data(response_buf, AUTH_MAX_PACKET_SIZE, client) == -1) {
+    std::cerr << "Skytale::SecureServer::authenticate_client: Cannot receive data from the endpoint.\n";
     return 1;
+  }
   
   response.assign(response_buf);
   delete response_buf;
@@ -948,6 +974,7 @@ int32_t SecureServer::authenticate_client(SecureClient *client,
   if (dec.get<std::string>() != auth_operation(AUTH_CERT_REQ)) {
     // Something strange happened. The client did not send with a proper
     // packet format. We have to end the authentication process here.
+    std::cerr << "Skytale::SecureServer::authenticate_client: Wrong packet format. AUTH_CERT_REQ was expected.\n";
     return 1;
   }
   // Extract the client ID.
@@ -967,14 +994,18 @@ int32_t SecureServer::authenticate_client(SecureClient *client,
   packet = enc.get();
 
   // Send the packet.
-  if (this->send_data(packet.c_str(), packet.size(), client) == -1)
+  if (this->send_data(packet.c_str(), packet.size(), client) == -1) {
+    std::cerr << "Skytale::SecureServer::authenticate_client: Cannot send data to the endpoint.\n";
     return 1;
+  }
   
   // Wait for client's response.
   response_buf = new char[AUTH_MAX_PACKET_SIZE];
   memset(response_buf, 0, AUTH_MAX_PACKET_SIZE);
-  if (this->receive_data(response_buf, AUTH_MAX_PACKET_SIZE, client) == -1)
+  if (this->receive_data(response_buf, AUTH_MAX_PACKET_SIZE, client) == -1) {
+    std::cerr << "Skytale::SecureServer::authenticate_client: Cannot receive data from the endpoint.\n";
     return 1;
+  }
   
   response.assign(response_buf);
   delete response_buf;
@@ -988,12 +1019,14 @@ int32_t SecureServer::authenticate_client(SecureClient *client,
   if (dec.get<std::string>() != auth_operation(AUTH_AUTH_REQ)) {
     // Something strange happened. The client did not reply with a proper
     // packet format. We have to end the authentication process here.
+    std::cerr << "Skytale::SecureServer::authenticate_client: Wrong packet format. AUTH_AUTH_REQ was expected.\n";
     return 1;
   }
   // Next comes the server's ID.
   if (dec.get<std::string>() != this->server_id()) {
     // Something strange happened. The ID of the server does not match the ID of the
     // requested server.
+    std::cerr << "Skytale::SecureServer::authenticate_client: Received server ID does not match the real server's ID.\n";
     return 1;
   }
   // Next comes the encrypted part. This part is encrypted with the server's public key.
@@ -1010,8 +1043,10 @@ int32_t SecureServer::authenticate_client(SecureClient *client,
   time_t tauth = dec.get<time_t>();
 
   time_t now = time(0);
-  if (tauth > (now + AUTH_MAX_TIME_SKEW) || (tauth + AUTH_MAX_TIME_SKEW) < now)
+  if (tauth > (now + AUTH_MAX_TIME_SKEW) || (tauth + AUTH_MAX_TIME_SKEW) < now) {
+    std::cerr << "Skytale::SecureServer::authenticate_client: Time skew was detected.\n";
     return 1;
+  }
   
   // Extract the random symmetric key.
   std::string kr_str = dec.get<std::string>();
@@ -1022,6 +1057,7 @@ int32_t SecureServer::authenticate_client(SecureClient *client,
   // Extract client ID.
   if (client->client_id() != dec.get<std::string>()) {
     // Wrong client ID.
+    std::cerr << "Skytale::SecureServer::authenticate_client: Wrong client ID.\n";
     return 1;
   }
   
@@ -1031,9 +1067,10 @@ int32_t SecureServer::authenticate_client(SecureClient *client,
   eccert.unpack_from_string(eccert_str);
   client->set_certificate(&eccert);
   
-  // Check cleint certificate.
+  // Check client certificate.
   if (!(eccert.is_valid(validate_func, parameter))) {
     // The certificate is not valid. We have to end the authentication process.
+    std::cerr << "Skytale::SecureServer::authenticate_client: Client certificate is note valid.\n";
     return 1;
   }
   
@@ -1046,6 +1083,7 @@ int32_t SecureServer::authenticate_client(SecureClient *client,
   kuec.load_from_string(eccert.subject_pk());
   if (!(kuec.verify_message(signed1, signature))) {
     // Signature is not valid.
+    std::cerr << "Skytale::SecureServer::authenticate_client: Message signature is not valid.\n";
     return 1;
   }
 
@@ -1054,25 +1092,34 @@ int32_t SecureServer::authenticate_client(SecureClient *client,
   dec2.put(signed1);
 
   // Extract the random symmetric key and valdiate it
-  if (dec2.get<std::string>() != kr_str)
+  if (dec2.get<std::string>() != kr_str) {
+    std::cerr << "Skytale::SecureServer::authenticate_client: Failed to validate the received random symmetric key (kr).\n";
     return 1;
+  }
   
   // Extract the key iv and validate it.
-  if (dec2.get<std::string>() != iv_str)
+  if (dec2.get<std::string>() != iv_str) {
+    std::cerr << "Skytale::SecureServer::authenticate_client: Failed to validate the received random iv (iv).\n";
     return 1;
-
+  }
+  
   // Extract the server id and valdiate it.
   if (dec2.get<std::string>() != this->server_id()) {
+    std::cerr << "Skytale::SecureServer::authenticate_client: Failed to validate the received Server ID.\n";
     return 1;
   }
 
   // Extract the server's public key and valdiate it.
-  if (dec2.get<std::string>() != m_keypair->public_key()->get_key_string())
+  if (dec2.get<std::string>() != m_keypair->public_key()->get_key_string()) {
+    std::cerr << "Skytale::SecureServer::authenticate_client: Failed to validate the received server's public key.\n";
     return 1;
-
+  }
+  
   // Extract the tauth and valdiate it.
-  if (dec2.get<time_t>() != tauth)
+  if (dec2.get<time_t>() != tauth) {
+    std::cerr << "Skytale::SecureServer::authenticate_client: Failed to validate the received timestamp (tauth).\n";
     return 1;
+  }
   
   // [Step 2] AUTH_REP: Create a secure session with the client.
   // ------------------------------------------------------------
@@ -1114,8 +1161,10 @@ int32_t SecureServer::authenticate_client(SecureClient *client,
   packet = enc.get();
 
   // Send the packet.
-  if (this->send_data(packet.c_str(), packet.size(), client) == -1)
+  if (this->send_data(packet.c_str(), packet.size(), client) == -1) {
+    std::cerr << "Skytale::SecureServer::authenticate_client: Cannot sent data to the endpoint.\n";
     return 1;
+  }
   
   return 0;
 }
@@ -1140,6 +1189,7 @@ int32_t SecureServer::send_secure_data(const void *data, const size_t data_len,
       return send_data(encrypted.c_str(), strlen(encrypted.c_str()), NULL);
     }
   }
+  std::cerr << "Skytale::SecureServer::send_secure_data: Cannot sent data to the endpoint.\n";
   return -1;
 }
 
@@ -1170,6 +1220,7 @@ int32_t SecureServer::receive_secure_data(void *data, const size_t data_len,
       }
     }
   }
+  std::cerr << "Skytale::SecureServer::receive_secure_data: Cannot receive data from the endpoint.\n";
   return -1;
 }
 
