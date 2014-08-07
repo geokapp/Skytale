@@ -25,7 +25,9 @@
 
 namespace Skytale {
 
-#define DEFAULT_PRKEY_SIZE 3072
+#define DEFAULT_PRKEY_SIZE 3076
+#define PLAIN_CHUNK_SIZE 343
+#define CIPHER_CHUNK_SIZE 385
 #define DEFAULT_AES_KEY_LENGTH CryptoPP::AES::DEFAULT_KEYLENGTH
 
 /**
@@ -78,7 +80,7 @@ class PublicKey {
 class PrivateKey {
  private:
   CryptoPP::RSA::PrivateKey m_private_key;
-  RandomNumberGenerator drng;  
+  RandomNumberGenerator m_drng;  
  public:
   explicit PrivateKey(const CryptoPP::RSA::PrivateKey sk);
   PrivateKey() {}
@@ -111,6 +113,8 @@ class KeyPair {
 
   void generate(int32_t size = DEFAULT_PRKEY_SIZE);
   int32_t load(const char *pk_filename, const char *sk_filename);
+  void set_public_key(PublicKey *pk);
+  void set_private_key(PrivateKey *uk);
   PublicKey *public_key();
   PrivateKey *private_key();
 };
@@ -131,10 +135,18 @@ class SymmetricKey {
   
  public:
   SymmetricKey();
+  SymmetricKey(SymmetricKey *sk);
+  
   ~SymmetricKey();
   void generate(uint16_t size = CryptoPP::AES::DEFAULT_KEYLENGTH);
-  void set_key(byte *key, uint16_t size);
-  void set_iv(byte *iv);
+  byte *key();
+  byte *iv();
+  int32_t key_size();
+  std::string get_key_string();
+  std::string get_iv_string();
+  void set_key(std::string key, uint16_t size =
+	       CryptoPP::AES::DEFAULT_KEYLENGTH);
+  void set_iv(std::string iv);
   void set_key_size(uint16_t size);
   std::string  encrypt(const std::string plain_message);
   std::string decrypt(const std::string encrypted_message);
