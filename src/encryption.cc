@@ -421,7 +421,7 @@ void PrivateKey::load_from_string(const std::string key) {
  */
 void PrivateKey::save_to_file(const char *filename) {
   CryptoPP::ByteQueue queue;
-  CryptoPP::HexDecoder encoder;
+  CryptoPP::HexEncoder encoder;
   CryptoPP::FileSink file(filename);
 
   // Encode the private key to HEX and save it to a file.
