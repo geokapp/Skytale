@@ -82,6 +82,10 @@ class Certificate {
   void sign(const std::string algorithm, PrivateKey *prk);
   std::string pack_to_string();
   void unpack_from_string(std::string certificate_str);
+
+  void save_to_file(const std::string filename);
+  int32_t load_from_file(const std::string filename);
+
   bool is_valid(int32_t (*validate_func)(const char *, void *), void *parameter);
 };
 
