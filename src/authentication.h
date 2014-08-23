@@ -123,7 +123,7 @@ class Certificate {
  * delete client;
  * ------------------------------------
  */
-class SecureClient : public libiris::Client {
+class SecureClient : public iris::Client {
  private:
   KeyPair *m_keypair;
   Certificate *m_certificate;
@@ -177,7 +177,7 @@ class SecureClient : public libiris::Client {
  * }
  * ------------------------------------
  */
-class SecureServer : public libiris::Server {
+class SecureServer : public iris::Server {
  private:
   KeyPair *m_keypair;
   Certificate *m_certificate;
