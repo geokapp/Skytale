@@ -11,12 +11,17 @@
  * Foundation.  See file LICENSE.
  * 
  */
+#include <unistd.h>
 #include <map>
 #include <utility>
+#include <cryptopp/files.h>
+#include <cryptopp/filters.h>
+#include <cryptopp/hex.h>
+
 #include "authentication.h"
 #include "encoder.h"
 #include "encryption.h"
-#include <iostream>
+
 
 using namespace Skytale;
 
@@ -393,6 +398,56 @@ void Certificate::unpack_from_string(std::string certificate_str) {
   m_subject_pk = dec.get<std::string>();
   m_signature = dec.get<std::string>();
 }
+
+/**
+ * @name save_to_file - Save certificate to file.
+ * @param filename: The filename.
+ *
+ * This method packs the certificate and then stores it to a
+ * file.
+ *
+ * @return 0 on success, 1 on error..
+ */
+void Certificate::save_to_file(const std::string filename) {
+  std::string pack = this->pack_to_string();
+  CryptoPP::HexEncoder encoder;
+  CryptoPP::StringSource ss(pack, true);
+  CryptoPP::FileSink file(filename.c_str());
+
+  ss.CopyTo(encoder);
+  encoder.MessageEnd();
+  encoder.CopyTo(file);
+  file.MessageEnd();
+}
+
+/**
+ * @name load_from_file - Load certificate from file.
+ * @param filename: The filename.
+ *
+ * This method loads the certificate from a file.
+ *
+ * @return 0 on success, 1 on error..
+ */
+int32_t Certificate::load_from_file(const std::string filename) {
+  // Check file status.
+  if (access(filename.c_str(), F_OK) == -1)
+    return 1;
+
+  std::string cert;
+  CryptoPP::HexDecoder decoder;
+  CryptoPP::FileSource file(filename.c_str(), true);
+  CryptoPP::StringSink ss(cert);
+
+  file.TransferTo(decoder);
+  decoder.MessageEnd();
+  decoder.CopyTo(ss);
+  ss.MessageEnd();
+
+  this->unpack_from_string(cert);
+
+  return 0;
+}
+
 
 /**
  * @name is_valid - Check certificate validity.
@@ -1186,7 +1241,7 @@ int32_t SecureServer::send_secure_data(const void *data, const size_t data_len,
     if (client->shared_key()) {
       std::string data_string(static_cast<const char *>(data));
       std::string encrypted = client->shared_key()->encrypt(data_string);
-      return send_data(encrypted.c_str(), strlen(encrypted.c_str()), NULL);
+      return send_data(encrypted.c_str(), strlen(encrypted.c_str()), client);
     }
   }
   std::cerr << "Skytale::SecureServer::send_secure_data: Cannot sent data to the endpoint.\n";
