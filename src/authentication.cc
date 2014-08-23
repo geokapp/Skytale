@@ -1186,7 +1186,7 @@ int32_t SecureServer::send_secure_data(const void *data, const size_t data_len,
     if (client->shared_key()) {
       std::string data_string(static_cast<const char *>(data));
       std::string encrypted = client->shared_key()->encrypt(data_string);
-      return send_data(encrypted.c_str(), strlen(encrypted.c_str()), NULL);
+      return send_data(encrypted.c_str(), strlen(encrypted.c_str()), client);
     }
   }
   std::cerr << "Skytale::SecureServer::send_secure_data: Cannot sent data to the endpoint.\n";
