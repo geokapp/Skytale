@@ -227,31 +227,49 @@ std::string PublicKey::get_key_hash(HashFunction hash_func) {
   
   switch (hash_func) {
     case SHA256_H:
-      hf = new CryptoPP::HashFilter(hashsha256);
+      hf = new CryptoPP::HashFilter(hashsha256, 
+				    new CryptoPP::HexEncoder(
+					new CryptoPP::StringSink(keyHash)));
       break;
     case SHA384_H:
-      hf = new CryptoPP::HashFilter(hashsha384);
+      hf = new CryptoPP::HashFilter(hashsha384, 
+				    new CryptoPP::HexEncoder(
+					new CryptoPP::StringSink(keyHash)));
       break;
     case CRC32_H:
-      hf = new CryptoPP::HashFilter(hashcrc32);
+      hf = new CryptoPP::HashFilter(hashcrc32, 
+				    new CryptoPP::HexEncoder(
+					new CryptoPP::StringSink(keyHash)));
       break;
     case RIPEMD128_H:
-      hf = new CryptoPP::HashFilter(hashripemd128);
+      hf = new CryptoPP::HashFilter(hashripemd128, 
+				    new CryptoPP::HexEncoder(
+					new CryptoPP::StringSink(keyHash)));
       break;
     case RIPEMD160_H:
-      hf = new CryptoPP::HashFilter(hashripemd160);
+      hf = new CryptoPP::HashFilter(hashripemd160, 
+				    new CryptoPP::HexEncoder(
+					new CryptoPP::StringSink(keyHash)));
       break;
     case RIPEMD256_H:
-      hf = new CryptoPP::HashFilter(hashripemd256);
+      hf = new CryptoPP::HashFilter(hashripemd256, 
+				    new CryptoPP::HexEncoder(
+					new CryptoPP::StringSink(keyHash)));
       break;
     case RIPEMD320_H:
-      hf = new CryptoPP::HashFilter(hashripemd320);
+      hf = new CryptoPP::HashFilter(hashripemd320, 
+				    new CryptoPP::HexEncoder(
+					new CryptoPP::StringSink(keyHash)));
       break;
     case MD5_H:
-      hf = new CryptoPP::HashFilter(hashmd5);
+      hf = new CryptoPP::HashFilter(hashmd5, 
+				    new CryptoPP::HexEncoder(
+					new CryptoPP::StringSink(keyHash)));
       break;
     default:
-      hf = new CryptoPP::HashFilter(hashsha512);
+      hf = new CryptoPP::HashFilter(hashsha512,
+				    new CryptoPP::HexEncoder(
+					new CryptoPP::StringSink(keyHash)));
       break;
   }
   
@@ -259,9 +277,8 @@ std::string PublicKey::get_key_hash(HashFunction hash_func) {
   CryptoPP::StringSink *ss = new CryptoPP::StringSink(keyHash);
   CryptoPP::HexEncoder encoder(ss, false);
 
-  queue.CopyTo(*hf);
-  hf->MessageEnd();
-  hf->TransferTo(encoder);
+  std::string source = this->get_key_string();
+  CryptoPP::StringSource(source, true, hf);
   
   return keyHash;
 }
@@ -317,10 +334,6 @@ std::string PublicKey::encrypt_message(const std::string message,
   }
   return result;
 }
-
-
-
-
 
 /**
  * @name verify_message - Verify a message signature.
@@ -519,7 +532,6 @@ std::string PrivateKey::decrypt_message(const std::string message) {
   return result;
 }
 
-
 /**
  * @name sign_message - Sign a message.
  * @param message: Plain message.
@@ -575,7 +587,6 @@ KeyPair::~KeyPair() {
   m_private_key = NULL;
 }
 
-
 /**
  * @name generate - Generate a key pair.
  * @param size: The size. If no size is specified The default is 3072.
@@ -588,6 +599,9 @@ void KeyPair::generate(int32_t size) {
   CryptoPP::RSA::PrivateKey sk;
   CryptoPP::RSA::PublicKey pk;
   CryptoPP::AutoSeededRandomPool rnd;
+  std::string seed = convert_uint_to_string(time(NULL));
+
+  rnd.IncorporateEntropy((byte *)seed.c_str(), seed.size());
   
   sk.GenerateRandomWithKeySize(rnd, size);
   pk.AssignFrom(sk);
