@@ -120,12 +120,13 @@ void Decoder::put(const std::string in)
     m_current = 0;
     ss >> m_elements;
     m_sizes = new uint32_t[m_elements];
-    for (uint32_t i = 0; i < m_elements; i++ )		
+    for (uint32_t i = 0; i < m_elements; i++ )	
       ss >> m_sizes[i];
 
-    std::string tmp;
-    ss >> tmp;
-    m_payload = ss.str().substr(ss.str().find(tmp));
+    std::ostringstream os;
+
+    ss >> os.rdbuf();
+    m_payload = os.str();
   }
 }
 
