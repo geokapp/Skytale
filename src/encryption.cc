@@ -918,7 +918,6 @@ std::string SymmetricKey::decrypt(std::string encrypted_message) {
   
   std::string result;
   result.clear();
-  CryptoPP::StringSink *ss_decrypt = new CryptoPP::StringSink(result);
   CryptoPP::CBC_Mode<CryptoPP::AES>::Decryption decryptor;
   decryptor.SetKeyWithIV(m_key, m_key_size, m_iv);
 
