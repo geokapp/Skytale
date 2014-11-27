@@ -24,7 +24,12 @@
 #include <cryptopp/hex.h>
 #include <cryptopp/sha.h>
 #include <cryptopp/files.h>
-
+#include <cryptopp/crc.h>
+#define CRYPTOPP_ENABLE_NAMESPACE_WEAK 1
+#include <cryptopp/md5.h>
+#include <cryptopp/ripemd.h>
+#include <cryptopp/rsa.h>
+#include <cryptopp/sha.h>
 #include "digest.h"
 
 using namespace Skytale;
@@ -35,7 +40,7 @@ using namespace Skytale;
  *
  * This method calculates a message digest and attaches it to the message.
  *
- * @return mmessage+digest string.
+ * @return message+digest string.
  */
 std::string MessageDigest::make(const char *message_cstr) {
   CryptoPP::SHA256 hash;
@@ -77,3 +82,60 @@ bool MessageDigest::verify(const char *message_with_digest_cstr) {
   
   return result;
 }	
+
+/**
+ * @name hash - Generates a hash from a message.
+ * @param message_cstr: the message string.
+ *
+ * This method calculates the cryptographic hash of a message.
+ *
+ * @return message hash.
+ */
+std::string MessageDigest::hash(const HashFunction hash_func, const char *message_cstr) {
+  std::string message(message_cstr); 
+  std::string result;
+  CryptoPP::SHA256 hashsha256;
+  CryptoPP::SHA384 hashsha384;
+  CryptoPP::SHA512 hashsha512;
+  CryptoPP::RIPEMD128 hashripemd128;
+  CryptoPP::RIPEMD160 hashripemd160;
+  CryptoPP::RIPEMD256 hashripemd256;
+  CryptoPP::RIPEMD320 hashripemd320;
+  CryptoPP::Weak1::MD5 hashmd5;
+  CryptoPP::CRC32 hashcrc32;
+  CryptoPP::StringSink *ss = new CryptoPP::StringSink(result);
+  CryptoPP::HexEncoder *he = new CryptoPP::HexEncoder(ss);
+  CryptoPP::HashFilter *hf;
+  
+  switch (hash_func) {
+    case SHA256_H:
+      hf = new CryptoPP::HashFilter(hashsha256, he);
+      break;
+    case SHA384_H:
+      hf = new CryptoPP::HashFilter(hashsha384, he);
+      break;
+    case CRC32_H:
+      hf = new CryptoPP::HashFilter(hashcrc32, he);
+      break;
+    case RIPEMD128_H:
+      hf = new CryptoPP::HashFilter(hashripemd128, he);
+      break;
+    case RIPEMD160_H:
+      hf = new CryptoPP::HashFilter(hashripemd160, he);
+      break;
+    case RIPEMD256_H:
+      hf = new CryptoPP::HashFilter(hashripemd256, he);
+      break;
+    case RIPEMD320_H:
+      hf = new CryptoPP::HashFilter(hashripemd320, he);
+      break;
+    case MD5_H:
+      hf = new CryptoPP::HashFilter(hashmd5, he);
+      break;
+    default:
+      hf = new CryptoPP::HashFilter(hashsha512, he);
+      break;
+  }
+  CryptoPP::StringSource st(message, true, hf);
+  return result;
+}
