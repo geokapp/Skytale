@@ -96,7 +96,6 @@ Certificate::Certificate(Certificate *cert) {
   m_signature_algorithm = cert->signature_algorithm();
   m_issuer = cert->issuer();
   m_subject = cert->subject();
-  m_subject_type = cert->subject_type();
   m_subject_pk_algorithm = cert->subject_pk_algorithm();
   m_subject_pk = cert->subject_pk();
   m_signature = cert->signature();
