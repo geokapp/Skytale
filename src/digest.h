@@ -29,6 +29,8 @@ class MessageDigest {
  public:
   std::string make(const char *message_cstr);
   bool verify(const char *message_with_digest_cstr);
+  std::string hash(const HashFunction hash_func, const char *message_cstr);
+  
 };
 
 }
