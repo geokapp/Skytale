@@ -36,6 +36,7 @@
 #include <cryptopp/files.h>
 
 #include "common.h"
+#include "digest.h"
 #include "encryption.h"
 
 using namespace Skytale;
@@ -346,20 +347,24 @@ std::string PublicKey::encrypt_message(const std::string message,
  */
 bool PublicKey::verify_message(const std::string message,
 			       const std::string signature) {
+  MessageDigest md;
   CryptoPP::RSASS<CryptoPP::PSSR, CryptoPP::SHA256>::Verifier pub(m_public_key);
   CryptoPP::HexDecoder *hd = new CryptoPP::HexDecoder;
   CryptoPP::StringSource signatureMessage(signature, true, hd);
 
   if (signatureMessage.MaxRetrievable() != pub.SignatureLength()) 
     return false;
-
+  
+  // First generate the hash of the message.
+  std::string message_hash = md.hash(SHA256_H, message.c_str());
+  
   CryptoPP::SecByteBlock cSignature(pub.SignatureLength());
   signatureMessage.Get(cSignature, cSignature.size());
 
   CryptoPP::VerifierFilter *verifierFilter = new CryptoPP::VerifierFilter(pub);
   verifierFilter->Put(cSignature, pub.SignatureLength());
 
-  CryptoPP::StringSource s(message, true, verifierFilter);
+  CryptoPP::StringSource s(message_hash, true, verifierFilter);
   bool result = verifierFilter->GetLastResult();
 
   return result;
@@ -542,12 +547,17 @@ std::string PrivateKey::decrypt_message(const std::string message) {
  */
 std::string PrivateKey::sign_message(const std::string message) {
   std::string signature;
+  MessageDigest md;
   
+  // First generate the hash of the message.
+  std::string message_hash = md.hash(SHA256_H, message.c_str());
+
+  // Sign the message's hash.
   CryptoPP::RSASS<CryptoPP::PSSR, CryptoPP::SHA256>::Signer priv(m_private_key);
   CryptoPP::StringSink *ss = new CryptoPP::StringSink(signature);
   CryptoPP::HexEncoder *he = new CryptoPP::HexEncoder(ss);
   CryptoPP::SignerFilter *sf = new CryptoPP::SignerFilter(m_drng.get(), priv, he);
-  CryptoPP::StringSource signature_source(message, true, sf);
+  CryptoPP::StringSource signature_source(message_hash, true, sf);
 
   return signature;
 }

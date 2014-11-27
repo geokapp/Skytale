@@ -23,7 +23,9 @@ using namespace Skytale;
 
 int main() {
   std::string message = "Hello World!\n423h«&*(^!*(#R*(!9H8Ytudg!@ui#gdgd@uigdhqi@gbed@(d@gdcqugdciq";
-
+  std::string message1 = "Hello world1\n";
+  std::string message2 = "Hello world2\n";
+  
   std::cout << "1. Testing message digests.\n\n";
 
   //
@@ -31,13 +33,20 @@ int main() {
   //
   MessageDigest messageDigest;
 
+  std::cout << messageDigest.hash(SHA256_H, message1.c_str()) << std::endl;
+  std::cout << messageDigest.hash(SHA256_H, message2.c_str()) << std::endl;
+  if (messageDigest.hash(SHA512_H, message1.c_str()) == messageDigest.hash(SHA512_H, message2.c_str()))
+    std::cout << "hash: Result ERROR\n";
+  else
+    std::cout << "hash: Result OK\n";
+  
   std::string mhash = messageDigest.make(message.c_str());
-
+  
   if (messageDigest.verify(mhash.c_str()))
-    std::cout << "Result OK\n";
+    std::cout << "digest: Result OK\n";
 
   else
-    std::cout << "Result ERROR\n";
+    std::cout << "digest: Result ERROR\n";
 
   //
   // Test Public key encryption.
@@ -78,10 +87,18 @@ int main() {
   std::cout <<"------------------------------\n";
   
   if (plain == result)
-    std::cout << "Result OK\n";
+    std::cout << "pk encryption: Result OK\n";
   else
-    std::cout << "Result Error\n";
+    std::cout << "pk encryption: Result Error\n";
 
+  std::string signature = pair.private_key()->sign_message(message2);
+
+  if (pair.public_key()->verify_message(message2, signature))
+    std::cout << "pk signature: Result OK\n";
+  else
+    std::cout << "pk signature: Result Error\n";
+
+  
   //
   // Test symmetric encryption.
   //
